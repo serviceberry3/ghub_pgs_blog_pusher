@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <EditText
+        android:id="@+id/postTitle"
+        android:layout_width="fill_parent"
+        android:layout_height="200px"
+        android:hint="@string/post_title_prompt"
+        android:inputType="text|textMultiLine" />
+
+    <EditText
+        android:layout_below="@+id/postTitle"
+        android:id="@+id/postContent"
+        android:layout_width="fill_parent"
+        android:layout_height="200px"
+        android:hint="@string/post_prompt"
+        android:inputType="text|textMultiLine" />
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_below="@id/postContent"
+        android:layout_height="150px"
+        android:id="@+id/submit"
+        android:text="@string/submit_button"/>
+
+</RelativeLayout>
