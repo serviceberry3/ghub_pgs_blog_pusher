@@ -1,5 +1,7 @@
 package weiner.noah.blogpusher;
 
+import android.util.Log;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,9 +12,11 @@ import java.nio.file.Paths;
 import java.util.Objects;
 
 public class Git {
-    private static final String gitCmdPath = "/data/data/com.termux/files/usr/bin/git";
+    private static final String gitCmdPath = "/system/bin/git";
+    private static final String TAG = "Git";
 
-    // example of usage
+
+    //example of usage
     private static void initAndAddFile() throws IOException, InterruptedException {
         Path directory = Paths.get("c:\\temp\\example");
         Files.createDirectories(directory);
@@ -22,7 +26,7 @@ public class Git {
         gitCommit(directory, "Add example.txt");
     }
 
-    // example of usage
+    //example of usage
     private static void cloneAndAddFile() throws IOException, InterruptedException {
         String originUrl = "https://github.com/Crydust/TokenReplacer.git";
         Path directory = Paths.get("c:\\temp\\TokenReplacer");
@@ -53,6 +57,10 @@ public class Git {
         runCommand(directory.getParent(), gitCmdPath, "clone", originUrl, directory.getFileName().toString());
     }
 
+    public static void setHome(Path directory, String newHome) throws IOException, InterruptedException {
+        runCommand(directory, "export", "HOME=" + newHome);
+    }
+
     public static void runCommand(Path directory, String... command) throws IOException, InterruptedException {
         Objects.requireNonNull(directory, "directory");
         if (!Files.exists(directory)) {
@@ -61,6 +69,11 @@ public class Git {
         ProcessBuilder pb = new ProcessBuilder()
                 .command(command)
                 .directory(directory.toFile());
+        //set HOME shell var so that git knows where to look for the config file. This isn't necessary.
+        /*
+        Map<String, String> envMap = pb.environment();
+        envMap.put("HOME", Constants.gitConfigDir);
+        Log.i(TAG, "got new HOME:" + envMap.get("HOME"));*/
         Process p = pb.start();
         StreamGobbler errorGobbler = new StreamGobbler(p.getErrorStream(), "ERROR");
         StreamGobbler outputGobbler = new StreamGobbler(p.getInputStream(), "OUTPUT");
@@ -70,7 +83,10 @@ public class Git {
         errorGobbler.join();
         outputGobbler.join();
         if (exit != 0) {
-            throw new AssertionError(String.format("runCommand returned %d", exit));
+            throw new AssertionError(String.format("runCommand() cmd returned %d", exit));
+        }
+        else {
+            Log.i(TAG, "command ran successfully");
         }
     }
 
