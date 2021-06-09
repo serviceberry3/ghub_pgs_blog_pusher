@@ -2,6 +2,8 @@ package weiner.noah.blogpusher;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
 import android.app.Activity;
@@ -29,7 +31,6 @@ import java.util.Date;
 import java.util.Locale;
 
 import me.sheimi.android.utils.BasicFunctions;
-import me.sheimi.sgit.database.RepoContract;
 import me.sheimi.sgit.database.RepoDbManager;
 import me.sheimi.sgit.database.models.Repo;
 import me.sheimi.sgit.dialogs.DummyDialogListener;
@@ -43,6 +44,10 @@ public class MainActivity extends AppCompatActivity {
     private EditText postTitleText;
     private final String TAG = "MainActivity";
 
+    private RecyclerView recyclerView;
+    private RecyclerView.Adapter adapter;
+    private RecyclerView.LayoutManager layoutManager;
+
     private final String postDir = rootDir + "_posts/";
 
     private final File rootDirFile = new File(rootDir);
@@ -55,6 +60,8 @@ public class MainActivity extends AppCompatActivity {
     //A dummy Sheimi PushTask obj, since it extends RepoRemoteOpTask, which is where we get OnPasswordEntered implementation
     private PushTask dummyPushTask;
 
+    private String blogName;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,6 +70,18 @@ public class MainActivity extends AppCompatActivity {
         BasicFunctions.setActiveActivity(this);
 
         Log.i(TAG, "Number of rows in tab: " + RepoDbManager.getNumRowsInTab());
+
+        //set up view
+        recyclerView = findViewById(R.id.recycler_view);
+        adapter = new BlogsAdapter(this);
+
+        //pass reference to activity
+        layoutManager = new LinearLayoutManager(this);
+
+        //set up the RecyclerView
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(layoutManager);
+        //now we've instantiated the recyclerview, set the adapter for it to be adapter we wrote, and so now it knows what data to display
 
         //if the repo hasn't been created in the sqlite table yet, create it now
 
@@ -113,6 +132,11 @@ public class MainActivity extends AppCompatActivity {
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
+
+    public void selectBlog(String name) {
+        Log.i(TAG, "selectBlog: new name is " + name);
+        this.blogName = name;
+    }
 
     //On opening the app, make sure we have username and passwd credentials in the db. If not, prompt use for them now.
     private void checkForStoredCredentials() {
@@ -179,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
 
         String frontMatter = "---\nlayout: post\ntitle: '" + titleText +
                 "'\ndate: " + currentDate.toString() +
-                "\ncategories: \nblog: at\n---\n";
+                "\ncategories: \nblog: " + blogName.replace("2021", "") + "\n---\n";
 
         String footer = "<br><br><br><br><br>" +
                 "<span class=\"text-sm\">" +
