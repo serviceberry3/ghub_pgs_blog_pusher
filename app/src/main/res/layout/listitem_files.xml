@@ -28,5 +28,4 @@
             android:textSize="@dimen/file_list_item_text_size"
             android:gravity="left|center"/>
 
-
 </RelativeLayout>
