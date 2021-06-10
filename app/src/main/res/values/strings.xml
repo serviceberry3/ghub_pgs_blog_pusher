@@ -120,6 +120,8 @@
     <string name="dialog_prompt_for_password_title_auth_fail">Authentication Failed</string>
     <string name="dialog_prompt_for_password_checkbox">Save username and password</string>
     <string name="dialog_title_you_want_to">You want to …</string>
+    <string name="imageview_str">Test</string>
+    <string name="add_img_button">Attach image</string>
     <string name="dialog_create_branch_title">Create new branch</string>
     <string name="dialog_create_branch_hint">Branch Name</string>
     <string name="dialog_clone_recursive">Clone recursively</string>

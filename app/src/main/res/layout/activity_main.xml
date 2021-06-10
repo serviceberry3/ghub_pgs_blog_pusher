@@ -7,7 +7,7 @@
     tools:context=".MainActivity">
 
     <androidx.recyclerview.widget.RecyclerView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/recycler_view" />
 
@@ -17,7 +17,8 @@
         android:layout_height="200px"
         android:hint="@string/post_title_prompt"
         android:inputType="text|textMultiLine"
-        android:layout_below="@id/recycler_view"/>
+        android:layout_below="@id/recycler_view"
+        android:autofillHints="" />
 
     <EditText
         android:layout_below="@+id/postTitle"
@@ -28,10 +29,34 @@
         android:inputType="text|textMultiLine" />
 
     <Button
-        android:layout_width="match_parent"
+        android:layout_marginTop="20dp"
+        android:layout_width="200dp"
         android:layout_below="@id/postContent"
         android:layout_height="150px"
-        android:id="@+id/submit"
+        android:id="@+id/add_img_button"
+        android:text="@string/add_img_button"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/add_img_button"
+        android:id="@+id/img_uri" />
+
+    <Button
+        android:layout_marginTop="50dp"
+        android:layout_width="match_parent"
+        android:layout_below="@id/img_uri"
+        android:layout_height="150px"
+        android:id="@+id/submit_post_button"
         android:text="@string/submit_button"/>
+
+    <ImageView
+        android:layout_marginTop="30dp"
+        android:layout_below="@+id/submit_post_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/img_attachment"
+        android:adjustViewBounds="true"
+        android:contentDescription="@string/imageview_str" />
 
 </RelativeLayout>

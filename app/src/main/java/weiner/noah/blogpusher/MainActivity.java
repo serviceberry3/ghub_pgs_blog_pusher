@@ -1,23 +1,32 @@
 package weiner.noah.blogpusher;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -36,10 +45,13 @@ import me.sheimi.sgit.database.models.Repo;
 import me.sheimi.sgit.dialogs.DummyDialogListener;
 import me.sheimi.sgit.repo.tasks.repo.PushTask;
 
+import static weiner.noah.blogpusher.Constants.relImgPath;
+import static weiner.noah.blogpusher.Constants.repoName;
 import static weiner.noah.blogpusher.Constants.rootDir;
+import static weiner.noah.blogpusher.Constants.siteImgAssetsDir;
 
 public class MainActivity extends AppCompatActivity {
-    private Button submitButton;
+    private Button submitButton, attachImgButton;
     private EditText postContentText;
     private EditText postTitleText;
     private final String TAG = "MainActivity";
@@ -47,6 +59,8 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private RecyclerView.Adapter adapter;
     private RecyclerView.LayoutManager layoutManager;
+
+    private ImageView imageView;
 
     private final String postDir = rootDir + "_posts/";
 
@@ -83,6 +97,9 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(layoutManager);
         //now we've instantiated the recyclerview, set the adapter for it to be adapter we wrote, and so now it knows what data to display
 
+        //select the ImageView
+        imageView = (ImageView) findViewById(R.id.img_attachment);
+
         //if the repo hasn't been created in the sqlite table yet, create it now
 
         if (RepoDbManager.getNumRowsInTab() == 0) {
@@ -108,12 +125,22 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        submitButton = (Button) findViewById(R.id.submit);
+        //set up submit post btn
+        submitButton = (Button) findViewById(R.id.submit_post_button);
         submitButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Log.i(TAG, postContentText.getText().toString());
 
+                if (!(((BlogsAdapter)adapter).isAnyBlogChecked())) {
+                    showToastMessage("Please select a blog first.");
+                    return;
+                }
+
+                if (postContentText.getText().toString().equals("") || postTitleText.getText().toString().equals("")) {
+                    showToastMessage("Title or content is empty.");
+                    return;
+                }
                 try {
                     pushPost();
                 } catch (IOException e) {
@@ -122,11 +149,20 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        //set up add img button
+        attachImgButton = (Button) findViewById(R.id.add_img_button);
+        attachImgButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                selectImage(MainActivity.this);
+            }
+        });
+
         postContentText = (EditText) findViewById(R.id.postContent);
         postTitleText = (EditText) findViewById(R.id.postTitle);
     }
 
-    // Storage Permissions
+    //Storage Permissions
     private final int REQUEST_EXTERNAL_STORAGE = 1;
     private String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -184,6 +220,180 @@ public class MainActivity extends AppCompatActivity {
         postContentText.getText().clear();
     }
 
+    String currentPhotoPath;
+
+    private File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+
+        //this will resolve to something like /storage/emulated/0/Pictures
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
+        Log.i(TAG, "Pictures location is: " + storageDir.toString());
+
+        /**Creates new empty file in specified dir, using given prefix and suffix strings to generate name. If success, is guaranteed that:
+         - file denoted by the returned abstract pathname did not exist before this method was invoked, and
+         - This method nor its variants will return same abstract pathname again in current invocation of the VM.*/
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        //Save the file path of the captured image so that we can copy img to site assets and ref it in the blog post
+        currentPhotoPath = image.getAbsolutePath();
+
+        //return reference to the new empty file created in Pictures
+        return image;
+    }
+
+    private void copyImgToSiteAssets(String imgPath) {
+        try {
+            Git.runCommand(getApplication().getDataDir().toPath(), "cp", imgPath, Constants.siteImgAssetsDir);
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void selectImage(Context context) {
+        //options for the image
+        final CharSequence[] options = { "Take photo", "Choose from Gallery", "Cancel" };
+
+        //create a new AlertDialog builder, and set title of the pop-up dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Choose image source");
+
+        //set onClick actions for the items
+        builder.setItems(options, new DialogInterface.OnClickListener() {
+
+            @Override
+            public void onClick(DialogInterface dialog, int item) {
+                if (options[item].equals("Take photo")) {
+                    //start new Activity for image capture, will be placed at top of activity stack
+                    Intent takePicture = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+
+                    Log.i(TAG, "resolving activity...");
+
+                    // Ensure that there's a camera activity to handle the intent
+                    if (takePicture.resolveActivity(getPackageManager()) != null) {
+                        Log.i(TAG, "creating photo file...");
+                        //Create the File where the photo should go
+                        File photoFile = null;
+                        try {
+                            //create empty file to store the image in Pictures
+                            photoFile = createImageFile();
+                        } catch (IOException e) {
+                            //Error occurred while creating the File
+                            e.printStackTrace();
+                        }
+                        //Continue only if the File was successfully created
+                        if (photoFile != null) {
+                            /**get the URI for the File we created, where the photo will be stored
+                             FileProvider subclass of ContentProvider that facilitates secure sharing of files assoc w/app by creating content:// Uri for file instead of file:/// Uri.
+
+                             Content URI allows you to grant read and write access using temp access perms. When you create Intent containing content URI,
+                             in order to send content URI to a client app, you can also call Intent.setFlags() to add permissions.
+                             These permissions are available to the client app for as long as stack for receiving Activity is active.
+                             For Intent going to a Service, permissions are available as long as Service is running.
+
+                             In comparison, to control access to a file:/// Uri you have to modify the file system permissions of the underlying file.
+                             The permissions you provide become available to any app, and remain in effect until you change them. This level of access is fundamentally insecure.
+                            */
+                            //get content URI for the photo, authority is just this app.
+                            //will return something like content://weiner.noah.blogpusher/my_images/XXXX.jpg
+                            Uri contentURIForPhoto = FileProvider.getUriForFile(MainActivity.this, "weiner.noah.blogpusher", photoFile);
+
+                            Log.i(TAG, "Content URI is: " + contentURIForPhoto.toString());
+
+                            //this extra indicates a content resolver Uri is being used to store the requested image or video
+                            takePicture.putExtra(MediaStore.EXTRA_OUTPUT, contentURIForPhoto);
+                            takePicture.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            startActivityForResult(takePicture, 0);
+                        }
+                    }
+
+                } else if (options[item].equals("Choose from Gallery")) {
+                    //start new Activity for image selection from Gallery
+                    Intent pickPhoto = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                    startActivityForResult(pickPhoto , 1);
+
+                } else if (options[item].equals("Cancel")) {
+                    //close the dialog
+                    dialog.dismiss();
+                }
+            }
+        });
+        builder.show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        //make sure Activity wasn't cancelled
+        if (resultCode != RESULT_CANCELED) {
+            switch (requestCode) {
+                //returning from image capture
+                case 0:
+                    if (resultCode == RESULT_OK && data != null) {
+                        //Bundle extras = data.getExtras();
+
+                        //Log.i(TAG, "EXTRAS: " + extras.size());
+
+                        //Log.i(TAG, "Whether contains: " + data.getExtras().containsKey("data"));
+
+                        //get the image back from the save location and display preview
+                        imageView.setImageBitmap(BitmapFactory.decodeFile(currentPhotoPath));
+
+                        copyImgToSiteAssets(currentPhotoPath);
+                    }
+                    break;
+
+                //returning from Gallery img selection
+                case 1:
+                    //take the returned URI of the selected image, and load that file as a Bitmap
+                    if (resultCode == RESULT_OK && data != null) {
+                        //get URI of the image selected from the gallery
+                        Uri selectedImage = data.getData();
+                        String[] filePathColumn = {MediaStore.Images.Media.DATA};
+
+                        if (selectedImage != null) {
+                            /** ContentResolver provides apps access to the content model
+                             - query() similar to SQL format
+                            @param - this param maps to the table in the provider with this name
+                            @param - an array of columns that should be included for each row retrieved
+                            @param - 'selection' specifies criteria for selecting rows
+                            @param - 'sortOrder' specifies order in which rows appear in returned Cursor
+                             */
+                            Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+                            if (cursor != null) {
+                                //move to first row
+                                cursor.moveToFirst();
+
+                                //get the index of column with name equal to first String in filePathColumn
+                                int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+
+                                //file path of the picture sits here
+                                String picturePath = cursor.getString(columnIndex);
+
+                                //decode the file into Bitmap and display it
+                                imageView.setImageBitmap(BitmapFactory.decodeFile(picturePath));
+                                cursor.close();
+
+                                //copy image into website assets
+                                copyImgToSiteAssets(picturePath);
+
+                                currentPhotoPath = picturePath;
+                            }
+                        }
+
+                    }
+                    break;
+            }
+        }
+    }
+
     public void pushPost() throws IOException {
         Date currentDate = Calendar.getInstance().getTime();
         Log.i(TAG, currentDate.toString());
@@ -196,7 +406,11 @@ public class MainActivity extends AppCompatActivity {
 
         String fileName = postDir + formattedDate + "-" + titleText.toLowerCase().replace(" ", "") + ".markdown";
 
-        String postContent = postContentText.getText().toString();
+        Log.i(TAG, "TESTSRC: " + relImgPath + currentPhotoPath.substring(currentPhotoPath.lastIndexOf('/') + 1));
+
+        String postContent = postContentText.getText().toString() + "<br><br><br><br>" +
+                "<img src=\"" + "{{ '" + relImgPath + currentPhotoPath.substring(currentPhotoPath.lastIndexOf('/') + 1) + "' | prepend: site.baseurl }}" +
+       "\" width=\"400\" />";
 
         Log.i(TAG, fileName);
         Log.i(TAG, "Post content is: " + postContent);
@@ -394,14 +608,12 @@ public class MainActivity extends AppCompatActivity {
         void onClicked(String text);
     }
 
-    public void showOptionsDialog(int title,final int option_names,
-                                  final onOptionDialogClicked[] option_listeners) {
+    public void showOptionsDialog(int title,final int option_names, final onOptionDialogClicked[] option_listeners) {
         CharSequence[] options_values = getResources().getStringArray(option_names);
         showOptionsDialog(title, options_values, option_listeners);
     }
 
-    public void showOptionsDialog(int title, CharSequence[] option_values,
-                                  final onOptionDialogClicked[] option_listeners) {
+    public void showOptionsDialog(int title, CharSequence[] option_values, final onOptionDialogClicked[] option_listeners) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(title);
         builder.setItems(option_values,new DialogInterface.OnClickListener() {

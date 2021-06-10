@@ -37,8 +37,18 @@ public class BlogsAdapter extends RecyclerView.Adapter<BlogsAdapter.BlogsViewHol
         this.mainActivity = mainActivity;
 
         fillBlogList();
-
         clearAllCheckBoxes();
+    }
+
+    //check to see if a blog has been selected yet
+    public boolean isAnyBlogChecked() {
+        for (Integer thisInteger : selectCheck) {
+            if (thisInteger == 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void clearAllCheckBoxes() {
